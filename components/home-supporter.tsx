@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { todayKey } from "@/lib/store";
+import { todayKey } from "@/lib/utils";
 import { useUserMode } from "@/lib/user-mode";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";

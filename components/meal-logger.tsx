@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -27,7 +27,7 @@ import {
   useRemoveMealEntry,
   useUpdateMealQuantity,
 } from "@/lib/hooks/use-meal-db";
-import { todayKey } from "@/lib/store";
+import { todayKey } from "@/lib/utils";
 import { cn, MEAL_SLOTS, type MealSlotId } from "@/lib/utils";
 import type { Tables } from "@/lib/database.types";
 
@@ -50,6 +50,13 @@ export function MealLogger() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("recent");
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!errorMsg) return;
+    const t = window.setTimeout(() => setErrorMsg(null), 3000);
+    return () => clearTimeout(t);
+  }, [errorMsg]);
 
   const date = todayKey();
 
@@ -98,20 +105,36 @@ export function MealLogger() {
           setQuery("");
           window.setTimeout(() => setJustAdded(null), 1200);
         },
+        onError: () => setErrorMsg("음식 추가에 실패했어요. 다시 시도해 주세요."),
       }
     );
   }
 
   function handleRemove(entryId: string) {
-    removeEntry.mutate({ entryId, date, slot });
+    removeEntry.mutate(
+      { entryId, date, slot },
+      { onError: () => setErrorMsg("삭제에 실패했어요. 다시 시도해 주세요.") }
+    );
   }
 
   function handleQty(entryId: string, quantity: number) {
-    updateQuantity.mutate({ entryId, quantity, date, slot });
+    updateQuantity.mutate(
+      { entryId, quantity, date, slot },
+      { onError: () => setErrorMsg("수량 변경에 실패했어요. 다시 시도해 주세요.") }
+    );
   }
 
   return (
     <div className={cn("space-y-6 px-4 pb-8 pt-6", isSelf && "space-y-7")}>
+      {errorMsg && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive"
+        >
+          ⚠️ {errorMsg}
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { todayKey } from "@/lib/store";
+import { todayKey } from "@/lib/utils";
 import { useUserMode } from "@/lib/user-mode";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";

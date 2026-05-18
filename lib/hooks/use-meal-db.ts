@@ -69,25 +69,24 @@ export function useAllMealEntries(recipientId: string | null, date: string) {
     queryKey: ["meal-entries-all", recipientId, date],
     enabled: !!recipientId,
     queryFn: async () => {
-      const { data: logs } = await supabase
+      const { data: logs, error } = await supabase
         .from("meal_logs")
-        .select("id, slot")
+        .select("slot, meal_log_entries(*)")
         .eq("recipient_id", recipientId!)
         .eq("date", date);
 
+      if (error) throw error;
       if (!logs || logs.length === 0) return {};
 
       const result: Record<string, MealEntry[]> = {};
-      await Promise.all(
-        logs.map(async (log) => {
-          const { data } = await supabase
-            .from("meal_log_entries")
-            .select("*")
-            .eq("log_id", log.id)
-            .order("logged_at", { ascending: true });
-          result[log.slot] = (data as MealEntry[]) ?? [];
-        })
-      );
+      for (const log of logs) {
+        const entries = ((log.meal_log_entries as MealEntry[]) ?? []).sort(
+          (a, b) =>
+            new Date(a.logged_at ?? 0).getTime() -
+            new Date(b.logged_at ?? 0).getTime()
+        );
+        result[log.slot] = entries;
+      }
       return result;
     },
   });
