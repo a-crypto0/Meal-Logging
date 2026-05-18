@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Calendar, Home, Sparkles, UtensilsCrossed } from "lucide-react";
+import { BarChart3, Calendar, Home, Settings, Sparkles, UtensilsCrossed } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ const TABS = [
   { href: "/analysis", label: "영양", icon: BarChart3 },
   { href: "/recommend", label: "추천", icon: Sparkles },
   { href: "/history", label: "히스토리", icon: Calendar },
+  { href: "/settings", label: "설정", icon: Settings },
 ];
 
 export function BottomNav() {
@@ -24,7 +25,7 @@ export function BottomNav() {
       aria-label="주 메뉴"
       className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-background/95 backdrop-blur"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {TABS.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);

@@ -305,15 +305,56 @@ export function useUpdateMealQuantity(recipientId: string | null) {
   });
 }
 
+export function useMealLog(recipientId: string | null, date: string, slot: MealSlotId) {
+  return useQuery({
+    queryKey: ["meal-log", recipientId, date, slot],
+    enabled: !!recipientId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("meal_logs")
+        .select("id, note")
+        .eq("recipient_id", recipientId!)
+        .eq("date", date)
+        .eq("slot", slot)
+        .maybeSingle();
+      return data as { id: string; note: string | null } | null;
+    },
+  });
+}
+
+export function useUpdateMealNote(recipientId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      logId,
+      note,
+    }: {
+      logId: string;
+      note: string;
+      date: string;
+      slot: MealSlotId;
+    }) => {
+      const { error } = await supabase
+        .from("meal_logs")
+        .update({ note: note || null })
+        .eq("id", logId);
+      if (error) throw error;
+    },
+    onSuccess: (_, { date, slot }) => {
+      qc.invalidateQueries({ queryKey: ["meal-log", recipientId, date, slot] });
+    },
+  });
+}
+
 export function useCareRecipients(supporterId: string | null) {
   return useQuery({
     queryKey: ["care-recipients", supporterId],
     enabled: !!supporterId,
     queryFn: async () => {
+      // RLS handles access: returns rows where user is supporter_id OR in supporter_recipients
       const { data, error } = await supabase
         .from("care_recipients")
         .select("*")
-        .eq("supporter_id", supporterId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;

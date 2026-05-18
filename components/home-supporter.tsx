@@ -6,6 +6,7 @@ import {
   BarChart3,
   ChevronRight,
   RefreshCw,
+  Settings,
   Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
@@ -80,15 +81,24 @@ export function HomeSupporter() {
               </Badge>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setMode(null)}
-            aria-label="모드 변경"
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-border px-3 py-2 text-xs font-bold hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-            모드 변경
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/settings"
+              aria-label="설정"
+              className="inline-flex items-center justify-center rounded-full border-2 border-border p-2 hover:bg-accent"
+            >
+              <Settings className="h-4 w-4" aria-hidden />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMode(null)}
+              aria-label="모드 변경"
+              className="inline-flex items-center gap-1 rounded-full border-2 border-border px-3 py-2 text-xs font-bold hover:bg-accent"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              모드 변경
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-3 gap-2">

@@ -113,6 +113,61 @@ export type Database = {
         }
         Relationships: []
       }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          recipient_id: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code?: string
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          recipient_id: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          recipient_id?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "care_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_log_entries: {
         Row: {
           emoji: string
@@ -166,6 +221,7 @@ export type Database = {
           created_at: string | null
           date: string
           id: string
+          note: string | null
           recipient_id: string
           slot: string
         }
@@ -173,6 +229,7 @@ export type Database = {
           created_at?: string | null
           date: string
           id?: string
+          note?: string | null
           recipient_id: string
           slot: string
         }
@@ -180,6 +237,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: string
+          note?: string | null
           recipient_id?: string
           slot?: string
         }
@@ -189,6 +247,60 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "care_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          breakfast_time: string | null
+          created_at: string | null
+          dinner_time: string | null
+          enabled: boolean | null
+          id: string
+          lunch_time: string | null
+          recipient_id: string
+          snack_time: string | null
+          supporter_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          breakfast_time?: string | null
+          created_at?: string | null
+          dinner_time?: string | null
+          enabled?: boolean | null
+          id?: string
+          lunch_time?: string | null
+          recipient_id: string
+          snack_time?: string | null
+          supporter_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          breakfast_time?: string | null
+          created_at?: string | null
+          dinner_time?: string | null
+          enabled?: boolean | null
+          id?: string
+          lunch_time?: string | null
+          recipient_id?: string
+          snack_time?: string | null
+          supporter_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "care_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preferences_supporter_id_fkey"
+            columns: ["supporter_id"]
+            isOneToOne: false
+            referencedRelation: "supporters"
             referencedColumns: ["id"]
           },
         ]
@@ -240,6 +352,100 @@ export type Database = {
           },
         ]
       }
+      share_tokens: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          label: string | null
+          recipient_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          recipient_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          recipient_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_tokens_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "care_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supporter_recipients: {
+        Row: {
+          id: string
+          invited_by: string | null
+          joined_at: string | null
+          recipient_id: string
+          role: string
+          supporter_id: string
+        }
+        Insert: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          recipient_id: string
+          role?: string
+          supporter_id: string
+        }
+        Update: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          recipient_id?: string
+          role?: string
+          supporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supporter_recipients_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supporter_recipients_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "care_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supporter_recipients_supporter_id_fkey"
+            columns: ["supporter_id"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supporters: {
         Row: {
           created_at: string | null
@@ -263,7 +469,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_invite: { Args: { p_code: string }; Returns: Json }
+      get_share_view: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

@@ -22,6 +22,8 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
 import {
   useMealEntries,
+  useMealLog,
+  useUpdateMealNote,
   useRecentFoods,
   useAddMealEntry,
   useRemoveMealEntry,
@@ -286,6 +288,11 @@ export function MealLogger() {
         </div>
       )}
 
+      {/* 케어 메모 (지원인력 전용) */}
+      {!isSelf && recipientId && (
+        <NoteSection recipientId={recipientId} date={date} slot={slot} />
+      )}
+
       {/* 현재 기록 */}
       <section aria-labelledby="current-entries">
         <h2 id="current-entries" className="mb-2 text-base font-bold">
@@ -502,6 +509,50 @@ function CustomFoodInline({
         {isPending ? "추가 중..." : `${emoji} ${name.trim() || "직접 추가"}`}
       </Button>
     </div>
+  );
+}
+
+function NoteSection({
+  recipientId,
+  date,
+  slot,
+}: {
+  recipientId: string;
+  date: string;
+  slot: MealSlotId;
+}) {
+  const { data: log } = useMealLog(recipientId, date, slot);
+  const updateNote = useUpdateMealNote(recipientId);
+  const [draft, setDraft] = useState(log?.note ?? "");
+
+  useEffect(() => {
+    setDraft(log?.note ?? "");
+  }, [log?.note]);
+
+  useEffect(() => {
+    if (!log?.id) return;
+    const t = window.setTimeout(() => {
+      updateNote.mutate({ logId: log.id, note: draft, date, slot });
+    }, 800);
+    return () => clearTimeout(t);
+    // intentionally only re-run on draft change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  return (
+    <section>
+      <label htmlFor={`note-${slot}`} className="text-base font-semibold">
+        케어 메모
+      </label>
+      <textarea
+        id={`note-${slot}`}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="특이사항, 선호도 등을 기록해주세요…"
+        rows={3}
+        className="mt-2 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm"
+      />
+    </section>
   );
 }
 
