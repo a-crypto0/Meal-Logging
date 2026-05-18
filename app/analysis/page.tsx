@@ -2,19 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 
 import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
 import { useUserMode } from "@/lib/user-mode";
 import {
   useNutritionAnalysis,
+  useRecipientTargets,
+  useUpdateRecipientTargets,
   DAILY_TARGETS,
   getSignal,
   signalEmoji,
   overallEmoji,
   type NutrientKey,
   type SignalLevel,
+  type TargetValues,
 } from "@/lib/hooks/use-nutrition";
 import { PraiseBadges } from "@/components/praise-badges";
 import { RecipientSelector } from "@/components/recipient-selector";
@@ -59,8 +62,14 @@ export default function AnalysisPage() {
   const mode = useUserMode((s) => s.mode);
   const [date, setDate] = useState(todayKey());
 
+  const [editingTargets, setEditingTargets] = useState(false);
+
   const recipientId = selectedRecipient?.id ?? null;
   const { data: totals, isLoading } = useNutritionAnalysis(recipientId, date);
+  const { data: recipientTargets } = useRecipientTargets(recipientId);
+  const updateTargets = useUpdateRecipientTargets(recipientId);
+
+  const effectiveTargets = recipientTargets ?? DAILY_TARGETS;
 
   const today = todayKey();
   const isToday = date === today;
@@ -100,10 +109,31 @@ export default function AnalysisPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-extrabold">영양 분석</h1>
-          {selectedRecipient && (
-            <span className="text-sm text-muted-foreground">{selectedRecipient.name}</span>
-          )}
+          <div className="flex items-center gap-2">
+            {selectedRecipient && (
+              <span className="text-sm text-muted-foreground">{selectedRecipient.name}</span>
+            )}
+            <button
+              onClick={() => setEditingTargets((v) => !v)}
+              className="rounded-full p-2 hover:bg-accent"
+              aria-label="영양 목표 설정"
+              aria-pressed={editingTargets}
+            >
+              <Settings2 className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
+
+        {editingTargets && (
+          <TargetEditCard
+            initial={effectiveTargets}
+            onSave={(t) =>
+              updateTargets.mutate(t, { onSuccess: () => setEditingTargets(false) })
+            }
+            onCancel={() => setEditingTargets(false)}
+            isPending={updateTargets.isPending}
+          />
+        )}
 
         {/* Date navigation */}
         <div className="flex items-center justify-between gap-3">
@@ -141,15 +171,15 @@ export default function AnalysisPage() {
             <Card>
               <CardContent className="p-4 flex items-center gap-4">
                 <span className="text-5xl" aria-hidden>
-                  {overallEmoji(totals!)}
+                  {overallEmoji(totals!, effectiveTargets)}
                 </span>
                 <div>
                   <p className="text-lg font-extrabold">
                     {Math.round(totals!.calories).toLocaleString()} kcal
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    목표 {DAILY_TARGETS.calories.toLocaleString()} kcal 중{" "}
-                    {Math.round((totals!.calories / DAILY_TARGETS.calories) * 100)}%
+                    목표 {effectiveTargets.calories.toLocaleString()} kcal 중{" "}
+                    {Math.round((totals!.calories / effectiveTargets.calories) * 100)}%
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     총 {mealCount}개 메뉴 기록됨
@@ -164,7 +194,7 @@ export default function AnalysisPage() {
                 <p className="font-bold">영양소별 현황</p>
                 {NUTRIENTS.filter((n) => n.key !== "calories").map(({ key, label, unit }) => {
                   const actual = totals![key];
-                  const target = DAILY_TARGETS[key];
+                  const target = effectiveTargets[key];
                   const pct = Math.min((actual / target) * 100, 150);
                   const signal = getSignal(actual, target);
                   return (
@@ -222,6 +252,57 @@ export default function AnalysisPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function TargetEditCard({
+  initial,
+  onSave,
+  onCancel,
+  isPending,
+}: {
+  initial: TargetValues;
+  onSave: (t: TargetValues) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const [vals, setVals] = useState<TargetValues>({ ...initial });
+
+  const set = (key: keyof TargetValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setVals((prev) => ({ ...prev, [key]: Number(e.target.value) }));
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <p className="font-bold text-sm">개인 영양 목표 설정</p>
+        {NUTRIENTS.map(({ key, label, unit }) => (
+          <div key={key} className="flex items-center gap-3">
+            <label className="w-20 shrink-0 text-sm font-semibold">{label}</label>
+            <input
+              type="number"
+              min={0}
+              value={vals[key]}
+              onChange={set(key)}
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <span className="w-8 shrink-0 text-xs text-muted-foreground">{unit}</span>
+          </div>
+        ))}
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" size="sm" onClick={onCancel} className="flex-1">
+            취소
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onSave(vals)}
+            disabled={isPending}
+            className="flex-1"
+          >
+            {isPending ? "저장 중…" : "저장"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { unitForId, type Food } from "@/lib/food-data";
+import { unitFor, unitForId, type FoodCategory, type Food } from "@/lib/food-data";
 import type { Tables } from "@/lib/database.types";
 import type { MealSlotId } from "@/lib/utils";
 
@@ -245,6 +245,62 @@ export function useCreateRecipient(supporterId: string | null) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["care-recipients", supporterId] });
+    },
+  });
+}
+
+export function useFoodSearch(query: string) {
+  return useQuery({
+    queryKey: ["food-search", query],
+    enabled: query.trim().length >= 1,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Food[]> => {
+      const { data, error } = await supabase
+        .from("food_items")
+        .select("id, name, emoji, category")
+        .ilike("name", `%${query.trim()}%`)
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        emoji: f.emoji,
+        category: f.category as FoodCategory,
+      }));
+    },
+  });
+}
+
+export function useAddCustomFood(supporterId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (food: Pick<Food, "name" | "emoji" | "category">): Promise<Food> => {
+      if (!supporterId) throw new Error("Not authenticated");
+      const id = `custom-${crypto.randomUUID()}`;
+      const { unit } = unitFor(food.category);
+      const { data, error } = await supabase
+        .from("food_items")
+        .insert({
+          id,
+          name: food.name,
+          emoji: food.emoji,
+          category: food.category,
+          default_unit: unit,
+          is_custom: true,
+          supporter_id: supporterId,
+        })
+        .select("id, name, emoji, category")
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        name: data.name,
+        emoji: data.emoji,
+        category: data.category as FoodCategory,
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["food-search"] });
     },
   });
 }

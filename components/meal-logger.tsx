@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { searchFoods, unitForId, type Food } from "@/lib/food-data";
+import { unitForId, type FoodCategory, type Food } from "@/lib/food-data";
 import { useUserMode } from "@/lib/user-mode";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
@@ -26,6 +26,8 @@ import {
   useAddMealEntry,
   useRemoveMealEntry,
   useUpdateMealQuantity,
+  useFoodSearch,
+  useAddCustomFood,
 } from "@/lib/hooks/use-meal-db";
 import { todayKey } from "@/lib/utils";
 import { cn, MEAL_SLOTS, type MealSlotId } from "@/lib/utils";
@@ -65,8 +67,9 @@ export function MealLogger() {
   const addEntry = useAddMealEntry(recipientId);
   const removeEntry = useRemoveMealEntry(recipientId);
   const updateQuantity = useUpdateMealQuantity(recipientId);
+  const addCustomFood = useAddCustomFood(user?.id ?? null);
 
-  const suggestions = useMemo(() => searchFoods(query), [query]);
+  const { data: suggestions = [], isLoading: isSearchLoading } = useFoodSearch(query);
   const isSearching = query.trim().length > 0;
   const slotMeta = MEAL_SLOTS.find((s) => s.id === slot)!;
 
@@ -215,10 +218,21 @@ export function MealLogger() {
         {isSearching && (
           <Card>
             <CardContent className="p-2">
-              {suggestions.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-muted-foreground">
-                  일치하는 음식이 없어요.
-                </p>
+              {isSearchLoading ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground">검색 중...</p>
+              ) : suggestions.length === 0 ? (
+                <CustomFoodInline
+                  initialName={query}
+                  onAdd={async (food) => {
+                    try {
+                      const created = await addCustomFood.mutateAsync(food);
+                      handleAdd(created);
+                    } catch {
+                      setErrorMsg("음식 추가에 실패했어요. 다시 시도해 주세요.");
+                    }
+                  }}
+                  isPending={addCustomFood.isPending}
+                />
               ) : (
                 <ul>
                   {suggestions.map((f) => (
@@ -411,6 +425,83 @@ function QtyButton({
     >
       {children}
     </button>
+  );
+}
+
+const FOOD_EMOJIS = [
+  "🍚","🍜","🥣","🍲","🍳","🥚","🍱","🍗","🐟","🥬",
+  "🥗","🍎","🍌","🍊","🥛","🍞","🍕","🥩","🥦","🍪",
+];
+
+const CATEGORY_OPTIONS: { value: FoodCategory; label: string }[] = [
+  { value: "rice", label: "밥류" },
+  { value: "soup", label: "국/찌개" },
+  { value: "protein", label: "단백질" },
+  { value: "side", label: "반찬" },
+  { value: "fruit", label: "과일" },
+  { value: "snack", label: "간식" },
+  { value: "drink", label: "음료" },
+];
+
+function CustomFoodInline({
+  initialName,
+  onAdd,
+  isPending,
+}: {
+  initialName: string;
+  onAdd: (food: Pick<Food, "name" | "emoji" | "category">) => Promise<void>;
+  isPending: boolean;
+}) {
+  const [name, setName] = useState(initialName);
+  const [emoji, setEmoji] = useState("🍽️");
+  const [category, setCategory] = useState<FoodCategory>("side");
+
+  return (
+    <div className="space-y-3 p-3">
+      <p className="text-sm text-muted-foreground">
+        검색 결과가 없어요. 직접 추가해보세요.
+      </p>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="음식 이름"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+      />
+      <div className="flex flex-wrap gap-1">
+        {FOOD_EMOJIS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => setEmoji(e)}
+            className={cn(
+              "rounded-lg p-1 text-xl leading-none",
+              emoji === e ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-accent"
+            )}
+            aria-label={e}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value as FoodCategory)}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+      >
+        {CATEGORY_OPTIONS.map((c) => (
+          <option key={c.value} value={c.value}>{c.label}</option>
+        ))}
+      </select>
+      <Button
+        onClick={() => onAdd({ name: name.trim(), emoji, category })}
+        disabled={!name.trim() || isPending}
+        className="w-full h-10"
+        size="sm"
+      >
+        {isPending ? "추가 중..." : `${emoji} ${name.trim() || "직접 추가"}`}
+      </Button>
+    </div>
   );
 }
 

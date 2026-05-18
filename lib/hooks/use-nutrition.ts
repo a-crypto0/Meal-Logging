@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { todayKey } from "@/lib/utils";
 
@@ -38,10 +38,18 @@ export function signalEmoji(level: SignalLevel): string {
   return { good: "🟢", warn: "🟡", bad: "🔴", empty: "⚪" }[level];
 }
 
-export function overallEmoji(totals: NutritionTotals): string {
+export type TargetValues = {
+  calories: number;
+  carbs_g: number;
+  protein_g: number;
+  fat_g: number;
+  fiber_g: number;
+};
+
+export function overallEmoji(totals: NutritionTotals, targets: TargetValues = DAILY_TARGETS): string {
   if (totals.mealCount === 0) return "🍽️";
   const signals = (["carbs_g", "protein_g", "fat_g"] as NutrientKey[]).map((k) =>
-    getSignal(totals[k], DAILY_TARGETS[k])
+    getSignal(totals[k], targets[k])
   );
   if (signals.every((s) => s === "good")) return "😊";
   if (signals.some((s) => s === "bad")) return "😟";
@@ -108,7 +116,67 @@ export function useNutritionAnalysis(
       }
 
       totals.categories = [...catSet];
+
+      // Fire-and-forget: cache daily totals to nutrition_snapshots for history optimisation
+      void supabase.from("nutrition_snapshots").upsert({
+        recipient_id: recipientId!,
+        date,
+        total_calories: Math.round(totals.calories),
+        total_carbs_g: Math.round(totals.carbs_g * 10) / 10,
+        total_protein_g: Math.round(totals.protein_g * 10) / 10,
+        total_fat_g: Math.round(totals.fat_g * 10) / 10,
+        total_fiber_g: Math.round(totals.fiber_g * 10) / 10,
+        meal_count: entries.length,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "recipient_id,date" });
+
       return totals;
+    },
+  });
+}
+
+export function useRecipientTargets(recipientId: string | null) {
+  return useQuery({
+    queryKey: ["recipient-targets", recipientId],
+    enabled: !!recipientId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<TargetValues> => {
+      const { data, error } = await supabase
+        .from("care_recipients")
+        .select("target_calories, target_carbs_g, target_protein_g, target_fat_g, target_fiber_g")
+        .eq("id", recipientId!)
+        .single();
+      if (error) throw error;
+      return {
+        calories: data.target_calories ?? DAILY_TARGETS.calories,
+        carbs_g: data.target_carbs_g ?? DAILY_TARGETS.carbs_g,
+        protein_g: data.target_protein_g ?? DAILY_TARGETS.protein_g,
+        fat_g: data.target_fat_g ?? DAILY_TARGETS.fat_g,
+        fiber_g: data.target_fiber_g ?? DAILY_TARGETS.fiber_g,
+      };
+    },
+  });
+}
+
+export function useUpdateRecipientTargets(recipientId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (targets: TargetValues) => {
+      if (!recipientId) throw new Error("No recipient");
+      const { error } = await supabase
+        .from("care_recipients")
+        .update({
+          target_calories: targets.calories,
+          target_carbs_g: targets.carbs_g,
+          target_protein_g: targets.protein_g,
+          target_fat_g: targets.fat_g,
+          target_fiber_g: targets.fiber_g,
+        })
+        .eq("id", recipientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recipient-targets", recipientId] });
     },
   });
 }

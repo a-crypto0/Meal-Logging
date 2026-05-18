@@ -54,9 +54,11 @@ export function unitFor(category: FoodCategory): { unit: string; step: number } 
   return UNITS_BY_CATEGORY[category];
 }
 
-export function unitForId(foodId: string): { unit: string; step: number } {
+export function unitForId(foodId: string, category?: FoodCategory): { unit: string; step: number } {
   const f = FOOD_CATALOG.find((x) => x.id === foodId);
-  return f ? unitFor(f.category) : { unit: "개", step: 1 };
+  if (f) return unitFor(f.category);
+  if (category) return unitFor(category);
+  return { unit: "개", step: 1 };
 }
 
 export function searchFoods(query: string, limit = 8): Food[] {
