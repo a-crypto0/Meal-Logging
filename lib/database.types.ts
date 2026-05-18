@@ -18,6 +18,8 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          repeat_warning_count: number | null
+          repeat_warning_days: number | null
           supporter_id: string
           target_calories: number | null
           target_carbs_g: number | null
@@ -30,6 +32,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          repeat_warning_count?: number | null
+          repeat_warning_days?: number | null
           supporter_id: string
           target_calories?: number | null
           target_carbs_g?: number | null
@@ -42,6 +46,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          repeat_warning_count?: number | null
+          repeat_warning_days?: number | null
           supporter_id?: string
           target_calories?: number | null
           target_carbs_g?: number | null

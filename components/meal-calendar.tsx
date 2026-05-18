@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { CalendarDay } from "@/lib/hooks/use-history";
+import { useUserMode } from "@/lib/user-mode";
 
 const DOT_COLORS = [
   "",                // 0 slots
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export function MealCalendar({ year, month, days, selectedDate, today, onSelect }: Props) {
+  const isSelf = useUserMode((s) => s.mode) === "self";
   const firstDay = new Date(year, month - 1, 1).getDay(); // 0=일
   // 월요일 시작 → 일요일=6, 월요일=0 ...
   const startOffset = firstDay === 0 ? 6 : firstDay - 1;
@@ -46,7 +48,7 @@ export function MealCalendar({ year, month, days, selectedDate, today, onSelect 
       {/* 요일 헤더 */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="text-center text-xs font-bold text-muted-foreground py-1">
+          <div key={w} className={cn("text-center font-bold text-muted-foreground py-1", isSelf ? "text-sm" : "text-xs")}>
             {w}
           </div>
         ))}
@@ -102,7 +104,7 @@ export function MealCalendar({ year, month, days, selectedDate, today, onSelect 
       </div>
 
       {/* 범례 */}
-      <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+      <div className={cn("mt-3 flex items-center gap-4 text-muted-foreground", isSelf ? "text-sm" : "text-[11px]")}>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-signal-good" />
           3~4 식사

@@ -181,15 +181,19 @@ export function useUpdateRecipientTargets(recipientId: string | null) {
   });
 }
 
-export function useRepetitiveFoods(recipientId: string | null) {
-  const sevenDaysAgo = (() => {
+export function useRepetitiveFoods(
+  recipientId: string | null,
+  days = 7,
+  count = 3
+) {
+  const since = (() => {
     const d = new Date();
-    d.setDate(d.getDate() - 7);
+    d.setDate(d.getDate() - days);
     return todayKey(d);
   })();
 
   return useQuery({
-    queryKey: ["repetitive-foods", recipientId, sevenDaysAgo],
+    queryKey: ["repetitive-foods", recipientId, days, count],
     enabled: !!recipientId,
     staleTime: 60_000,
     queryFn: async () => {
@@ -197,7 +201,7 @@ export function useRepetitiveFoods(recipientId: string | null) {
         .from("meal_logs")
         .select("id, date")
         .eq("recipient_id", recipientId!)
-        .gte("date", sevenDaysAgo);
+        .gte("date", since);
 
       if (!logs || logs.length === 0) return [];
 
@@ -212,7 +216,6 @@ export function useRepetitiveFoods(recipientId: string | null) {
 
       if (!entries) return [];
 
-      // Count distinct dates per food
       const foodDates = new Map<string, { name: string; emoji: string; dates: Set<string> }>();
       for (const e of entries) {
         if (!e.food_id) continue;
@@ -225,9 +228,47 @@ export function useRepetitiveFoods(recipientId: string | null) {
       }
 
       return [...foodDates.entries()]
-        .filter(([, v]) => v.dates.size >= 3)
+        .filter(([, v]) => v.dates.size >= count)
         .map(([id, v]) => ({ id, name: v.name, emoji: v.emoji, days: v.dates.size }))
         .sort((a, b) => b.days - a.days);
+    },
+  });
+}
+
+export function useRepeatThreshold(recipientId: string | null) {
+  return useQuery({
+    queryKey: ["repeat-threshold", recipientId],
+    enabled: !!recipientId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("care_recipients")
+        .select("repeat_warning_days, repeat_warning_count")
+        .eq("id", recipientId!)
+        .single();
+      if (error) throw error;
+      return {
+        days: data.repeat_warning_days ?? 7,
+        count: data.repeat_warning_count ?? 3,
+      };
+    },
+  });
+}
+
+export function useUpdateRepeatThreshold(recipientId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ days, count }: { days: number; count: number }) => {
+      if (!recipientId) throw new Error("No recipient");
+      const { error } = await supabase
+        .from("care_recipients")
+        .update({ repeat_warning_days: days, repeat_warning_count: count })
+        .eq("id", recipientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["repeat-threshold", recipientId] });
+      qc.invalidateQueries({ queryKey: ["repetitive-foods", recipientId] });
     },
   });
 }

@@ -12,9 +12,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { DailyNutrition, TopFood } from "@/lib/hooks/use-history";
 import { DAILY_TARGETS } from "@/lib/hooks/use-nutrition";
+import { useUserMode } from "@/lib/user-mode";
 
 // 주간 칼로리 바 차트
 export function WeeklyCaloriesChart({ data }: { data: DailyNutrition[] }) {
+  const isSelf = useUserMode((s) => s.mode) === "self";
+
   if (data.every((d) => d.calories === 0)) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
@@ -30,12 +33,12 @@ export function WeeklyCaloriesChart({ data }: { data: DailyNutrition[] }) {
       <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 12, fontWeight: 700 }}
+          tick={{ fontSize: isSelf ? 14 : 12, fontWeight: 700 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 10 }}
+          tick={{ fontSize: isSelf ? 12 : 10 }}
           axisLine={false}
           tickLine={false}
           tickCount={4}
@@ -70,6 +73,8 @@ export function WeeklyCaloriesChart({ data }: { data: DailyNutrition[] }) {
 
 // 주간 탄단지 적층 바 차트
 export function WeeklyMacroChart({ data }: { data: DailyNutrition[] }) {
+  const isSelf = useUserMode((s) => s.mode) === "self";
+
   if (data.every((d) => d.carbs_g === 0)) return null;
 
   // kcal로 환산
@@ -85,11 +90,11 @@ export function WeeklyMacroChart({ data }: { data: DailyNutrition[] }) {
       <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 12, fontWeight: 700 }}
+          tick={{ fontSize: isSelf ? 14 : 12, fontWeight: 700 }}
           axisLine={false}
           tickLine={false}
         />
-        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickCount={3} />
+        <YAxis tick={{ fontSize: isSelf ? 12 : 10 }} axisLine={false} tickLine={false} tickCount={3} />
         <Tooltip
           formatter={(value, name) => [`${value} kcal`, String(name)]}
           contentStyle={{
@@ -108,6 +113,8 @@ export function WeeklyMacroChart({ data }: { data: DailyNutrition[] }) {
 
 // Top 5 음식 수평 바
 export function TopFoodsChart({ foods }: { foods: TopFood[] }) {
+  const isSelf = useUserMode((s) => s.mode) === "self";
+
   if (foods.length === 0) {
     return (
       <p className="py-4 text-center text-sm text-muted-foreground">
@@ -131,7 +138,7 @@ export function TopFoodsChart({ foods }: { foods: TopFood[] }) {
         ];
         return (
           <li key={f.food_id} className="flex items-center gap-2">
-            <span className="w-5 text-center text-xs font-bold text-muted-foreground">
+            <span className={cn("w-5 text-center font-bold text-muted-foreground", isSelf ? "text-sm" : "text-xs")}>
               {i + 1}
             </span>
             <span className="text-lg" aria-hidden>
@@ -140,7 +147,7 @@ export function TopFoodsChart({ foods }: { foods: TopFood[] }) {
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold">{f.food_name}</span>
-                <span className="tabular-nums text-xs text-muted-foreground">
+                <span className={cn("tabular-nums text-muted-foreground", isSelf ? "text-sm" : "text-xs")}>
                   {f.count}회
                 </span>
               </div>

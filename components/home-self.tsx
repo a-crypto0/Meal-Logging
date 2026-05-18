@@ -11,6 +11,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
 import { useAllMealEntries } from "@/lib/hooks/use-meal-db";
 import { RepeatedMealWarning } from "@/components/repeated-meal-warning";
+import { OnboardingGuide } from "@/components/onboarding-guide";
 import { cn, MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSelf() {
@@ -69,6 +70,7 @@ export function HomeSelf() {
 
   return (
     <div className="space-y-6 px-4 pb-6 pt-6">
+      <OnboardingGuide />
       <header className="flex items-start justify-between">
         <div>
           <p className="text-base text-muted-foreground">안녕하세요!</p>

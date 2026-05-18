@@ -5,8 +5,20 @@ import { supabase } from "@/lib/supabase";
 import { unitFor, unitForId, type FoodCategory, type Food } from "@/lib/food-data";
 import type { Tables } from "@/lib/database.types";
 import type { MealSlotId } from "@/lib/utils";
+import { enqueueOp, cancelLastAddOp } from "@/lib/offline-queue";
 
 type MealEntry = Tables<"meal_log_entries">;
+
+const isOfflineError = (err: unknown): boolean =>
+  typeof err === "object" && err !== null && "isOffline" in err;
+
+function offlineErr(): Error {
+  return Object.assign(new Error("offline"), { isOffline: true });
+}
+
+function tempId(): string {
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 async function getOrCreateLog(
   recipientId: string,
@@ -123,16 +135,57 @@ export function useAddMealEntry(recipientId: string | null) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      date,
-      slot,
-      food,
-    }: {
-      date: string;
-      slot: MealSlotId;
-      food: Food;
-    }) => {
+    onMutate: async ({ date, slot, food }: { date: string; slot: MealSlotId; food: Food }) => {
+      if (!recipientId) return undefined;
+
+      const slotKey = ["meal-entries", recipientId, date, slot];
+      const allKey = ["meal-entries-all", recipientId, date];
+
+      await qc.cancelQueries({ queryKey: slotKey });
+      await qc.cancelQueries({ queryKey: allKey });
+
+      const prevSlot = qc.getQueryData<MealEntry[]>(slotKey) ?? [];
+      const prevAll = qc.getQueryData<Record<string, MealEntry[]>>(allKey) ?? {};
+
+      const { unit } = unitForId(food.id);
+      const optimistic: MealEntry = {
+        id: tempId(),
+        log_id: "temp",
+        food_id: food.id,
+        food_name: food.name,
+        emoji: food.emoji,
+        quantity: 1,
+        unit,
+        logged_at: new Date().toISOString(),
+      };
+
+      qc.setQueryData<MealEntry[]>(slotKey, [...prevSlot, optimistic]);
+      qc.setQueryData<Record<string, MealEntry[]>>(allKey, {
+        ...prevAll,
+        [slot]: [...(prevAll[slot] ?? []), optimistic],
+      });
+
+      return { prevSlot, prevAll, slotKey, allKey };
+    },
+
+    mutationFn: async ({ date, slot, food }: { date: string; slot: MealSlotId; food: Food }) => {
       if (!recipientId) throw new Error("No recipient selected");
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const { unit } = unitForId(food.id);
+        enqueueOp({
+          id: tempId(),
+          type: "add_entry",
+          recipientId,
+          date,
+          slot,
+          food: { id: food.id, name: food.name, emoji: food.emoji },
+          quantity: 1,
+          unit,
+        });
+        throw offlineErr();
+      }
+
       const logId = await getOrCreateLog(recipientId, date, slot);
       const { unit } = unitForId(food.id);
       const { error } = await supabase.from("meal_log_entries").insert({
@@ -145,13 +198,17 @@ export function useAddMealEntry(recipientId: string | null) {
       });
       if (error) throw error;
     },
+
+    onError: (err, _vars, ctx) => {
+      if (isOfflineError(err)) return; // keep optimistic entry visible while offline
+      if (!ctx) return;
+      qc.setQueryData(ctx.slotKey, ctx.prevSlot);
+      qc.setQueryData(ctx.allKey, ctx.prevAll);
+    },
+
     onSuccess: (_, { date, slot }) => {
-      qc.invalidateQueries({
-        queryKey: ["meal-entries", recipientId, date, slot],
-      });
-      qc.invalidateQueries({
-        queryKey: ["meal-entries-all", recipientId, date],
-      });
+      qc.invalidateQueries({ queryKey: ["meal-entries", recipientId, date, slot] });
+      qc.invalidateQueries({ queryKey: ["meal-entries-all", recipientId, date] });
       qc.invalidateQueries({ queryKey: ["recent-foods", recipientId] });
     },
   });
@@ -161,26 +218,61 @@ export function useRemoveMealEntry(recipientId: string | null) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      entryId,
-    }: {
-      entryId: string;
-      date: string;
-      slot: MealSlotId;
-    }) => {
+    onMutate: async ({ entryId, date, slot }: { entryId: string; date: string; slot: MealSlotId }) => {
+      if (!recipientId) return undefined;
+
+      const slotKey = ["meal-entries", recipientId, date, slot];
+      const allKey = ["meal-entries-all", recipientId, date];
+
+      await qc.cancelQueries({ queryKey: slotKey });
+
+      const prevSlot = qc.getQueryData<MealEntry[]>(slotKey) ?? [];
+      const prevAll = qc.getQueryData<Record<string, MealEntry[]>>(allKey) ?? {};
+
+      qc.setQueryData<MealEntry[]>(slotKey, prevSlot.filter((e) => e.id !== entryId));
+      qc.setQueryData<Record<string, MealEntry[]>>(allKey, {
+        ...prevAll,
+        [slot]: (prevAll[slot] ?? []).filter((e) => e.id !== entryId),
+      });
+
+      return { prevSlot, prevAll, slotKey, allKey };
+    },
+
+    mutationFn: async ({ entryId, date, slot }: { entryId: string; date: string; slot: MealSlotId }) => {
+      // Optimistically-added temp entry: cancel the corresponding queue op instead
+      if (entryId.startsWith("temp-")) {
+        cancelLastAddOp(date, slot);
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (!recipientId) return;
+        enqueueOp({
+          id: tempId(),
+          type: "remove_entry",
+          entryId,
+          recipientId,
+        });
+        throw offlineErr();
+      }
+
       const { error } = await supabase
         .from("meal_log_entries")
         .delete()
         .eq("id", entryId);
       if (error) throw error;
     },
+
+    onError: (err, _vars, ctx) => {
+      if (isOfflineError(err)) return;
+      if (!ctx) return;
+      qc.setQueryData(ctx.slotKey, ctx.prevSlot);
+      qc.setQueryData(ctx.allKey, ctx.prevAll);
+    },
+
     onSuccess: (_, { date, slot }) => {
-      qc.invalidateQueries({
-        queryKey: ["meal-entries", recipientId, date, slot],
-      });
-      qc.invalidateQueries({
-        queryKey: ["meal-entries-all", recipientId, date],
-      });
+      qc.invalidateQueries({ queryKey: ["meal-entries", recipientId, date, slot] });
+      qc.invalidateQueries({ queryKey: ["meal-entries-all", recipientId, date] });
     },
   });
 }
