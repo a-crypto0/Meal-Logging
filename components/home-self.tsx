@@ -10,6 +10,7 @@ import { useUserMode } from "@/lib/user-mode";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
 import { useAllMealEntries } from "@/lib/hooks/use-meal-db";
+import { RepeatedMealWarning } from "@/components/repeated-meal-warning";
 import { cn, MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSelf() {
@@ -93,6 +94,8 @@ export function HomeSelf() {
         </p>
         <p className="text-sm text-muted-foreground">{cheer}</p>
       </div>
+
+      <RepeatedMealWarning recipientId={recipientId} />
 
       <ul className="grid grid-cols-2 gap-3">
         {slots.map((slot) => {

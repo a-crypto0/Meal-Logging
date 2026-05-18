@@ -19,6 +19,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useRecipientStore } from "@/lib/recipient-store";
 import { useAllMealEntries } from "@/lib/hooks/use-meal-db";
 import { RecipientSelector } from "@/components/recipient-selector";
+import { RepeatedMealWarning } from "@/components/repeated-meal-warning";
 import { MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSupporter() {
@@ -67,6 +68,8 @@ export function HomeSupporter() {
       <RecipientSelector />
 
       <div className="space-y-4 px-4 pt-2">
+        {selectedRecipient && <RepeatedMealWarning recipientId={selectedRecipient.id} />}
+
         <header className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">{dateLabel}</p>
