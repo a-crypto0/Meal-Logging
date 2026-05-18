@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/bottom-nav";
+import { QueryProvider } from "@/components/query-provider";
+import { AuthProvider } from "@/components/auth-provider";
 
 import "./globals.css";
 
@@ -19,10 +21,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
-        <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
-          <main className="flex-1 pb-24">{children}</main>
-          <BottomNav />
-        </div>
+        <QueryProvider>
+          <AuthProvider>
+            <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
+              <main className="flex-1 pb-24">{children}</main>
+              <BottomNav />
+            </div>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

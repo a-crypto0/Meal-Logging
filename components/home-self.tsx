@@ -1,21 +1,57 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useMealStore, todayKey } from "@/lib/store";
+import { todayKey } from "@/lib/store";
 import { useUserMode } from "@/lib/user-mode";
+import { useAuthStore } from "@/lib/auth-store";
+import { useRecipientStore } from "@/lib/recipient-store";
+import { useAllMealEntries } from "@/lib/hooks/use-meal-db";
 import { cn, MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSelf() {
+  const router = useRouter();
   const today = todayKey();
-  const logs = useMealStore((s) => s.logs);
+
   const setMode = useUserMode((s) => s.setMode);
+  const { user } = useAuthStore();
+  const { selectedRecipient } = useRecipientStore();
+  const recipientId = selectedRecipient?.id ?? null;
+
+  const { data: allEntries = {} } = useAllMealEntries(recipientId, today);
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+        <div className="text-6xl">🍱</div>
+        <p className="text-2xl font-extrabold">오늘의 식판</p>
+        <p className="text-gray-500">식단을 기록하려면 로그인이 필요해요</p>
+        <Button onClick={() => router.push("/auth")} className="w-full max-w-xs h-14 text-lg mt-2">
+          시작하기
+        </Button>
+      </div>
+    );
+  }
+
+  if (!recipientId) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+        <div className="text-6xl">🎉</div>
+        <p className="text-2xl font-extrabold">거의 다 왔어요!</p>
+        <p className="text-gray-500">설정을 마저 완료해주세요</p>
+        <Button onClick={() => router.push("/onboarding")} className="w-full max-w-xs h-14 text-lg mt-2">
+          설정 완료하기
+        </Button>
+      </div>
+    );
+  }
 
   const slots = MEAL_SLOTS.map((slot) => ({
     ...slot,
-    entries: logs[`${today}:${slot.id}`] ?? [],
+    entries: allEntries[slot.id] ?? [],
   }));
 
   const completed = slots.filter((s) => s.entries.length > 0).length;

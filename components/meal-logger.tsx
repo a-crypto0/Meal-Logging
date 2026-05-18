@@ -16,12 +16,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useMealStore, todayKey } from "@/lib/store";
 import { searchFoods, unitForId, type Food } from "@/lib/food-data";
 import { useUserMode } from "@/lib/user-mode";
+import { useAuthStore } from "@/lib/auth-store";
+import { useRecipientStore } from "@/lib/recipient-store";
+import {
+  useMealEntries,
+  useRecentFoods,
+  useAddMealEntry,
+  useRemoveMealEntry,
+  useUpdateMealQuantity,
+} from "@/lib/hooks/use-meal-db";
+import { todayKey } from "@/lib/store";
 import { cn, MEAL_SLOTS, type MealSlotId } from "@/lib/utils";
+import type { Tables } from "@/lib/database.types";
 
 type Tab = "recent" | "frequent";
+type MealEntry = Tables<"meal_log_entries">;
 
 export function MealLogger() {
   const router = useRouter();
@@ -31,28 +42,72 @@ export function MealLogger() {
   const mode = useUserMode((s) => s.mode);
   const isSelf = mode === "self";
 
+  const { user } = useAuthStore();
+  const { selectedRecipient } = useRecipientStore();
+  const recipientId = selectedRecipient?.id ?? null;
+
   const [slot, setSlot] = useState<MealSlotId>(initialSlot);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("recent");
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
   const date = todayKey();
-  const entries = useMealStore((s) => s.logs[`${date}:${slot}`] ?? []);
-  const addEntry = useMealStore((s) => s.addEntry);
-  const removeEntry = useMealStore((s) => s.removeEntry);
-  const setQuantity = useMealStore((s) => s.setQuantity);
-  const recent = useMealStore((s) => s.getRecentFoods(8));
-  const frequent = useMealStore((s) => s.getFrequentFoods(8));
+
+  const { data: entries = [], isLoading } = useMealEntries(recipientId, date, slot);
+  const { data: recentFoods = [] } = useRecentFoods(recipientId);
+  const addEntry = useAddMealEntry(recipientId);
+  const removeEntry = useRemoveMealEntry(recipientId);
+  const updateQuantity = useUpdateMealQuantity(recipientId);
 
   const suggestions = useMemo(() => searchFoods(query), [query]);
   const isSearching = query.trim().length > 0;
   const slotMeta = MEAL_SLOTS.find((s) => s.id === slot)!;
 
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+        <div className="text-5xl">🔒</div>
+        <p className="text-lg font-bold">로그인이 필요해요</p>
+        <Button onClick={() => router.push("/auth")} className="w-full max-w-xs h-12">
+          로그인 / 회원가입
+        </Button>
+      </div>
+    );
+  }
+
+  if (!recipientId) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+        <div className="text-5xl">👤</div>
+        <p className="text-lg font-bold">
+          {isSelf ? "설정이 필요해요" : "케어 수급자를 선택해주세요"}
+        </p>
+        <Button onClick={() => router.push("/onboarding")} className="w-full max-w-xs h-12">
+          설정하기
+        </Button>
+      </div>
+    );
+  }
+
   function handleAdd(food: Food) {
-    addEntry(date, slot, food);
-    setJustAdded(food.id);
-    setQuery("");
-    window.setTimeout(() => setJustAdded(null), 1200);
+    addEntry.mutate(
+      { date, slot, food },
+      {
+        onSuccess: () => {
+          setJustAdded(food.id);
+          setQuery("");
+          window.setTimeout(() => setJustAdded(null), 1200);
+        },
+      }
+    );
+  }
+
+  function handleRemove(entryId: string) {
+    removeEntry.mutate({ entryId, date, slot });
+  }
+
+  function handleQty(entryId: string, quantity: number) {
+    updateQuantity.mutate({ entryId, quantity, date, slot });
   }
 
   return (
@@ -139,7 +194,7 @@ export function MealLogger() {
             <CardContent className="p-2">
               {suggestions.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-muted-foreground">
-                  일치하는 음식이 없어요. 직접 추가해 보세요.
+                  일치하는 음식이 없어요.
                 </p>
               ) : (
                 <ul>
@@ -167,7 +222,7 @@ export function MealLogger() {
         )}
       </div>
 
-      {/* 빠른 선택 탭: 자주/최근 */}
+      {/* 빠른 선택 탭 */}
       {!isSearching && (
         <div>
           <div role="tablist" aria-label="빠른 선택" className="mb-3 flex gap-2">
@@ -181,7 +236,7 @@ export function MealLogger() {
             </QuickTab>
           </div>
           <QuickGrid
-            foods={tab === "recent" ? recent : frequent}
+            foods={recentFoods}
             onPick={handleAdd}
             justAdded={justAdded}
             isSelf={isSelf}
@@ -199,14 +254,18 @@ export function MealLogger() {
         <h2 id="current-entries" className="mb-2 text-base font-bold">
           {slotMeta.label} 기록 ({entries.length})
         </h2>
-        {entries.length === 0 ? (
+        {isLoading ? (
+          <p className="rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            불러오는 중...
+          </p>
+        ) : entries.length === 0 ? (
           <p className="rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             아직 추가된 메뉴가 없어요
           </p>
         ) : (
           <ul className="space-y-2">
-            {entries.map((e) => {
-              const step = unitForId(e.foodId).step;
+            {entries.map((e: MealEntry) => {
+              const step = unitForId(e.food_id ?? "").step;
               return (
                 <li
                   key={e.id}
@@ -217,19 +276,21 @@ export function MealLogger() {
                       {e.emoji}
                     </span>
                     <span className="flex-1 text-base font-semibold">
-                      {e.foodName}
+                      {e.food_name}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" aria-hidden />
-                      {new Date(e.loggedAt).toLocaleTimeString("ko-KR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+                    {e.logged_at && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5" aria-hidden />
+                        {new Date(e.logged_at).toLocaleTimeString("ko-KR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    )}
                     <button
                       type="button"
-                      onClick={() => removeEntry(date, slot, e.id)}
-                      aria-label={`${e.foodName} 삭제`}
+                      onClick={() => handleRemove(e.id)}
+                      aria-label={`${e.food_name} 삭제`}
                       className="rounded-full p-2 hover:bg-destructive/10 hover:text-destructive"
                     >
                       <X className="h-5 w-5" />
@@ -237,10 +298,8 @@ export function MealLogger() {
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-secondary/60 p-1.5">
                     <QtyButton
-                      onClick={() =>
-                        setQuantity(date, slot, e.id, e.quantity - step)
-                      }
-                      ariaLabel={`${e.foodName} 양 줄이기`}
+                      onClick={() => handleQty(e.id, e.quantity - step)}
+                      ariaLabel={`${e.food_name} 양 줄이기`}
                       disabled={e.quantity <= step}
                       isSelf={isSelf}
                     >
@@ -255,10 +314,8 @@ export function MealLogger() {
                       {formatQty(e.quantity)} {e.unit}
                     </span>
                     <QtyButton
-                      onClick={() =>
-                        setQuantity(date, slot, e.id, e.quantity + step)
-                      }
-                      ariaLabel={`${e.foodName} 양 늘리기`}
+                      onClick={() => handleQty(e.id, e.quantity + step)}
+                      ariaLabel={`${e.food_name} 양 늘리기`}
                       isSelf={isSelf}
                     >
                       <Plus className={cn(isSelf ? "h-6 w-6" : "h-5 w-5")} />
@@ -341,7 +398,7 @@ function QuickGrid({
   justAdded,
   isSelf,
 }: {
-  foods: Food[];
+  foods: { id: string; name: string; emoji: string }[];
   onPick: (f: Food) => void;
   emptyLabel: string;
   justAdded: string | null;
@@ -362,7 +419,9 @@ function QuickGrid({
           <li key={f.id}>
             <button
               type="button"
-              onClick={() => onPick(f)}
+              onClick={() =>
+                onPick({ id: f.id, name: f.name, emoji: f.emoji, category: "rice" })
+              }
               className={cn(
                 "flex w-full items-center gap-2 rounded-2xl border-2 text-left transition-colors",
                 isSelf ? "p-4" : "p-3",
