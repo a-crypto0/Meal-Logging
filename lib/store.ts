@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { FOOD_CATALOG, type Food } from "@/lib/food-data";
+import { FOOD_CATALOG, unitForId, type Food } from "@/lib/food-data";
 import { todayKey, type MealSlotId } from "@/lib/utils";
 
 export type MealEntry = {
@@ -11,6 +11,8 @@ export type MealEntry = {
   foodId: string;
   foodName: string;
   emoji: string;
+  quantity: number;
+  unit: string;
   loggedAt: number; // epoch ms
 };
 
@@ -21,6 +23,7 @@ type MealStore = {
   logs: MealLog;
   addEntry: (date: string, slot: MealSlotId, food: Food) => void;
   removeEntry: (date: string, slot: MealSlotId, entryId: string) => void;
+  setQuantity: (date: string, slot: MealSlotId, entryId: string, qty: number) => void;
   getEntries: (date: string, slot: MealSlotId) => MealEntry[];
   getRecentFoods: (limit?: number) => Food[];
   getFrequentFoods: (limit?: number) => Food[];
@@ -37,15 +40,23 @@ export const useMealStore = create<MealStore>()(
 
       addEntry: (date, slot, food) => {
         const k = keyFor(date, slot);
+        const { unit } = unitForId(food.id);
         const entry: MealEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           foodId: food.id,
           foodName: food.name,
           emoji: food.emoji,
+          quantity: 1,
+          unit,
           loggedAt: Date.now(),
         };
         set((state) => ({
-          logs: { ...state.logs, [k]: [...(state.logs[k] ?? []), entry] },
+          logs: {
+            ...state.logs,
+            [k]: [...(state.logs[k] ?? []), entry].sort(
+              (a, b) => a.loggedAt - b.loggedAt
+            ),
+          },
         }));
       },
 
@@ -55,6 +66,19 @@ export const useMealStore = create<MealStore>()(
           logs: {
             ...state.logs,
             [k]: (state.logs[k] ?? []).filter((e) => e.id !== entryId),
+          },
+        }));
+      },
+
+      setQuantity: (date, slot, entryId, qty) => {
+        const k = keyFor(date, slot);
+        const clamped = Math.max(0.5, Math.round(qty * 10) / 10);
+        set((state) => ({
+          logs: {
+            ...state.logs,
+            [k]: (state.logs[k] ?? []).map((e) =>
+              e.id === entryId ? { ...e, quantity: clamped } : e
+            ),
           },
         }));
       },
@@ -88,7 +112,25 @@ export const useMealStore = create<MealStore>()(
           .filter((f): f is Food => !!f);
       },
     }),
-    { name: "meal-logging-store-v1" }
+    {
+      name: "meal-logging-store-v1",
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted as { logs?: Record<string, MealEntry[]> }) ?? { logs: {} };
+        if (version < 2 && state.logs) {
+          const migrated: MealLog = {};
+          for (const [k, entries] of Object.entries(state.logs)) {
+            migrated[k] = (entries as MealEntry[]).map((e) => ({
+              ...e,
+              quantity: e.quantity ?? 1,
+              unit: e.unit ?? unitForId(e.foodId).unit,
+            }));
+          }
+          return { ...state, logs: migrated };
+        }
+        return state;
+      },
+    }
   )
 );
 

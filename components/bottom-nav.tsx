@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, UtensilsCrossed, BarChart3, Calendar, Sparkles } from "lucide-react";
+import { BarChart3, Calendar, Home, Sparkles, UtensilsCrossed } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,8 @@ const TABS = [
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  if (pathname === "/welcome") return null;
 
   return (
     <nav

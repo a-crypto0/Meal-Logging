@@ -1,9 +1,18 @@
 // Seed food catalog. Step 5에서 OpenAI/DB로 확장.
+export type FoodCategory =
+  | "rice"
+  | "soup"
+  | "side"
+  | "protein"
+  | "fruit"
+  | "snack"
+  | "drink";
+
 export type Food = {
   id: string;
   name: string;
   emoji: string;
-  category: "rice" | "soup" | "side" | "protein" | "fruit" | "snack" | "drink";
+  category: FoodCategory;
 };
 
 export const FOOD_CATALOG: Food[] = [
@@ -30,6 +39,25 @@ export const FOOD_CATALOG: Food[] = [
   { id: "bread", name: "식빵", emoji: "🍞", category: "snack" },
   { id: "cookie", name: "쿠키", emoji: "🍪", category: "snack" },
 ];
+
+const UNITS_BY_CATEGORY: Record<FoodCategory, { unit: string; step: number }> = {
+  rice: { unit: "공기", step: 0.5 },
+  soup: { unit: "그릇", step: 0.5 },
+  side: { unit: "접시", step: 0.5 },
+  protein: { unit: "인분", step: 0.5 },
+  fruit: { unit: "개", step: 1 },
+  snack: { unit: "개", step: 1 },
+  drink: { unit: "컵", step: 0.5 },
+};
+
+export function unitFor(category: FoodCategory): { unit: string; step: number } {
+  return UNITS_BY_CATEGORY[category];
+}
+
+export function unitForId(foodId: string): { unit: string; step: number } {
+  const f = FOOD_CATALOG.find((x) => x.id === foodId);
+  return f ? unitFor(f.category) : { unit: "개", step: 1 };
+}
 
 export function searchFoods(query: string, limit = 8): Food[] {
   const q = query.trim().toLowerCase();

@@ -2,21 +2,34 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, Clock, History, Plus, Star, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  History,
+  Minus,
+  Plus,
+  Star,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useMealStore, todayKey } from "@/lib/store";
-import { searchFoods, type Food } from "@/lib/food-data";
+import { searchFoods, unitForId, type Food } from "@/lib/food-data";
+import { useUserMode } from "@/lib/user-mode";
 import { cn, MEAL_SLOTS, type MealSlotId } from "@/lib/utils";
 
-type Tab = "search" | "recent" | "frequent";
+type Tab = "recent" | "frequent";
 
 export function MealLogger() {
   const router = useRouter();
   const params = useSearchParams();
   const initialSlot = (params.get("slot") as MealSlotId | null) ?? "breakfast";
+
+  const mode = useUserMode((s) => s.mode);
+  const isSelf = mode === "self";
 
   const [slot, setSlot] = useState<MealSlotId>(initialSlot);
   const [query, setQuery] = useState("");
@@ -27,6 +40,7 @@ export function MealLogger() {
   const entries = useMealStore((s) => s.logs[`${date}:${slot}`] ?? []);
   const addEntry = useMealStore((s) => s.addEntry);
   const removeEntry = useMealStore((s) => s.removeEntry);
+  const setQuantity = useMealStore((s) => s.setQuantity);
   const recent = useMealStore((s) => s.getRecentFoods(8));
   const frequent = useMealStore((s) => s.getFrequentFoods(8));
 
@@ -42,7 +56,7 @@ export function MealLogger() {
   }
 
   return (
-    <div className="space-y-6 px-4 pb-8 pt-6">
+    <div className={cn("space-y-6 px-4 pb-8 pt-6", isSelf && "space-y-7")}>
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -54,7 +68,9 @@ export function MealLogger() {
         </Button>
         <div>
           <p className="text-sm text-muted-foreground">식사 기록</p>
-          <h1 className="text-2xl font-extrabold">무엇을 드셨나요?</h1>
+          <h1 className={cn("font-extrabold", isSelf ? "text-3xl" : "text-2xl")}>
+            무엇을 드셨나요?
+          </h1>
         </div>
       </div>
 
@@ -69,20 +85,29 @@ export function MealLogger() {
               aria-selected={active}
               onClick={() => setSlot(m.id)}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-2xl border-2 p-3 transition-colors",
+                "flex flex-col items-center gap-1 rounded-2xl border-2 transition-colors",
+                isSelf ? "p-4" : "p-3",
                 active
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-card text-foreground hover:bg-accent"
               )}
             >
-              <span className="text-2xl" aria-hidden>
+              <span className={cn(isSelf ? "text-3xl" : "text-2xl")} aria-hidden>
                 {m.emoji}
               </span>
-              <span className="text-sm font-bold">{m.label}</span>
+              <span className={cn("font-bold", isSelf ? "text-base" : "text-sm")}>
+                {m.label}
+              </span>
             </button>
           );
         })}
       </div>
+
+      {slot === "snack" && (
+        <p className="rounded-xl bg-meal-snack/10 px-3 py-2 text-sm text-foreground">
+          🍎 간식은 시간대마다 여러 번 추가할 수 있어요.
+        </p>
+      )}
 
       {/* 검색창 */}
       <div className="space-y-2">
@@ -128,7 +153,9 @@ export function MealLogger() {
                         <span className="text-2xl" aria-hidden>
                           {f.emoji}
                         </span>
-                        <span className="flex-1 text-base font-semibold">{f.name}</span>
+                        <span className="flex-1 text-base font-semibold">
+                          {f.name}
+                        </span>
                         <Plus className="h-5 w-5 text-primary" aria-hidden />
                       </button>
                     </li>
@@ -157,6 +184,7 @@ export function MealLogger() {
             foods={tab === "recent" ? recent : frequent}
             onPick={handleAdd}
             justAdded={justAdded}
+            isSelf={isSelf}
             emptyLabel={
               tab === "recent"
                 ? "최근 기록이 아직 없어요."
@@ -177,37 +205,77 @@ export function MealLogger() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {entries.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center gap-3 rounded-2xl border-2 border-border bg-card p-3"
-              >
-                <span className="text-2xl" aria-hidden>
-                  {e.emoji}
-                </span>
-                <span className="flex-1 text-base font-semibold">{e.foodName}</span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" aria-hidden />
-                  {new Date(e.loggedAt).toLocaleTimeString("ko-KR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeEntry(date, slot, e.id)}
-                  aria-label={`${e.foodName} 삭제`}
-                  className="rounded-full p-2 hover:bg-destructive/10 hover:text-destructive"
+            {entries.map((e) => {
+              const step = unitForId(e.foodId).step;
+              return (
+                <li
+                  key={e.id}
+                  className="rounded-2xl border-2 border-border bg-card p-3"
                 >
-                  <X className="h-5 w-5" />
-                </button>
-              </li>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <span className={cn(isSelf ? "text-3xl" : "text-2xl")} aria-hidden>
+                      {e.emoji}
+                    </span>
+                    <span className="flex-1 text-base font-semibold">
+                      {e.foodName}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" aria-hidden />
+                      {new Date(e.loggedAt).toLocaleTimeString("ko-KR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeEntry(date, slot, e.id)}
+                      aria-label={`${e.foodName} 삭제`}
+                      className="rounded-full p-2 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-secondary/60 p-1.5">
+                    <QtyButton
+                      onClick={() =>
+                        setQuantity(date, slot, e.id, e.quantity - step)
+                      }
+                      ariaLabel={`${e.foodName} 양 줄이기`}
+                      disabled={e.quantity <= step}
+                      isSelf={isSelf}
+                    >
+                      <Minus className={cn(isSelf ? "h-6 w-6" : "h-5 w-5")} />
+                    </QtyButton>
+                    <span
+                      className={cn(
+                        "min-w-[5rem] text-center font-extrabold tabular-nums",
+                        isSelf ? "text-2xl" : "text-lg"
+                      )}
+                    >
+                      {formatQty(e.quantity)} {e.unit}
+                    </span>
+                    <QtyButton
+                      onClick={() =>
+                        setQuantity(date, slot, e.id, e.quantity + step)
+                      }
+                      ariaLabel={`${e.foodName} 양 늘리기`}
+                      isSelf={isSelf}
+                    >
+                      <Plus className={cn(isSelf ? "h-6 w-6" : "h-5 w-5")} />
+                    </QtyButton>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
     </div>
   );
+}
+
+function formatQty(q: number): string {
+  return Number.isInteger(q) ? String(q) : q.toFixed(1);
 }
 
 function QuickTab({
@@ -237,16 +305,47 @@ function QuickTab({
   );
 }
 
+function QtyButton({
+  onClick,
+  ariaLabel,
+  disabled,
+  isSelf,
+  children,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+  disabled?: boolean;
+  isSelf: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      className={cn(
+        "flex items-center justify-center rounded-xl bg-background font-bold transition-colors hover:bg-accent disabled:opacity-40",
+        isSelf ? "h-14 w-14" : "h-11 w-11"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function QuickGrid({
   foods,
   onPick,
   emptyLabel,
   justAdded,
+  isSelf,
 }: {
   foods: Food[];
   onPick: (f: Food) => void;
   emptyLabel: string;
   justAdded: string | null;
+  isSelf: boolean;
 }) {
   if (foods.length === 0) {
     return (
@@ -265,20 +364,37 @@ function QuickGrid({
               type="button"
               onClick={() => onPick(f)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-2xl border-2 p-3 text-left transition-colors",
+                "flex w-full items-center gap-2 rounded-2xl border-2 text-left transition-colors",
+                isSelf ? "p-4" : "p-3",
                 flash
                   ? "border-primary bg-primary/15"
                   : "border-border bg-card hover:bg-accent"
               )}
             >
-              <span className="text-2xl" aria-hidden>
+              <span className={cn(isSelf ? "text-3xl" : "text-2xl")} aria-hidden>
                 {f.emoji}
               </span>
-              <span className="flex-1 text-sm font-bold">{f.name}</span>
+              <span
+                className={cn(
+                  "flex-1 font-bold",
+                  isSelf ? "text-base" : "text-sm"
+                )}
+              >
+                {f.name}
+              </span>
               {flash ? (
-                <Check className="h-5 w-5 text-primary" aria-hidden />
+                <Check
+                  className={cn(isSelf ? "h-6 w-6" : "h-5 w-5", "text-primary")}
+                  aria-hidden
+                />
               ) : (
-                <Plus className="h-5 w-5 text-muted-foreground" aria-hidden />
+                <Plus
+                  className={cn(
+                    isSelf ? "h-6 w-6" : "h-5 w-5",
+                    "text-muted-foreground"
+                  )}
+                  aria-hidden
+                />
               )}
             </button>
           </li>
