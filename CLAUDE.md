@@ -133,3 +133,29 @@ NEXT_PUBLIC_SUPABASE_URL=https://rqxittqcgocgsocqsroh.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 ANTHROPIC_API_KEY=<sk-ant-...>   # /api/recommend 라우트에서 사용
 ```
+
+---
+
+## 브랜치 & 배포
+
+| 브랜치 | 용도 |
+|--------|------|
+| `main` | 프로덕션 — Vercel 자동 배포 대상 |
+| `claude/review-next-steps-VGtCl` | Step 2~5 개발 브랜치 (main에 병합 완료) |
+
+### Vercel 배포 설정
+
+1. [vercel.com/new](https://vercel.com/new) → `a-crypto0/Meal-Logging` import
+2. 환경 변수 3개 설정 (위 `.env` 참고)
+3. Deploy → 이후 `main` push 시 자동 배포
+
+### GitHub Actions CI/CD (`.github/workflows/deploy.yml`)
+
+`main` push → 프로덕션 배포 / PR → 프리뷰 배포  
+필요한 GitHub Secrets:
+
+| Secret | 획득 방법 |
+|--------|-----------|
+| `VERCEL_TOKEN` | vercel.com/account/tokens |
+| `VERCEL_ORG_ID` | Vercel 프로젝트 Settings → General |
+| `VERCEL_PROJECT_ID` | 동일 |
