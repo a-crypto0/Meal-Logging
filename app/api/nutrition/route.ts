@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
       `https://world.openfoodfacts.org/cgi/search.pl?${params}`,
       {
         headers: { "User-Agent": "OdaeulSikpan-MealLog/1.0 (open source meal logging app)" },
-        // @ts-expect-error Next.js-specific fetch extension for server cache
         next: { revalidate: 86400 },
       }
     );
