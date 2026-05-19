@@ -6,6 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "오늘의 식판 · 식단 기록",
   description: "발달장애인과 지원인력을 위한 쉬운 식단 기록 · 영양 분석 앱",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {
