@@ -451,10 +451,39 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          organization_id: string | null
         }
         Insert: {
           created_at?: string | null
           id: string
+          name: string
+          organization_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supporters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
           name: string
         }
         Update: {
@@ -464,13 +493,54 @@ export type Database = {
         }
         Relationships: []
       }
+      org_members: {
+        Row: {
+          id: string
+          joined_at: string | null
+          org_id: string
+          role: string
+          supporter_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          org_id: string
+          role?: string
+          supporter_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          org_id?: string
+          role?: string
+          supporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_members_supporter_id_fkey"
+            columns: ["supporter_id"]
+            isOneToOne: false
+            referencedRelation: "supporters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_invite: { Args: { p_code: string }; Returns: Json }
+      create_organization: { Args: { p_name: string }; Returns: Json }
       get_share_view: { Args: { p_token: string }; Returns: Json }
+      join_organization: { Args: { p_org_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

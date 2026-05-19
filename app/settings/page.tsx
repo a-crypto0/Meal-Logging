@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Share2, Users } from "lucide-react";
+import { Bell, Building2, Share2, Users } from "lucide-react";
 import { NotificationSettings } from "@/components/notification-settings";
+import { OrgAdminPanel } from "@/components/org-admin-panel";
 import { ShareModal } from "@/components/share-modal";
 import { InviteModal } from "@/components/invite-modal";
 import { useRecipientStore } from "@/lib/recipient-store";
@@ -88,6 +89,14 @@ export default function SettingsPage() {
         {acceptInvite.isSuccess && (
           <p className="mt-2 text-sm text-primary">성공적으로 참여했어요!</p>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-border p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-primary" />
+          <h2 className="font-bold">복지관 관리</h2>
+        </div>
+        <OrgAdminPanel />
       </div>
 
       {showShare && selectedRecipient && (

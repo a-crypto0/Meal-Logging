@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MealCamera } from "@/components/meal-camera";
 import { unitForId, type FoodCategory, type Food } from "@/lib/food-data";
 import { useUserMode } from "@/lib/user-mode";
 import { useAuthStore } from "@/lib/auth-store";
@@ -191,6 +192,9 @@ export function MealLogger() {
           🍎 간식은 시간대마다 여러 번 추가할 수 있어요.
         </p>
       )}
+
+      {/* 사진 인식 */}
+      <MealCamera onAdd={handleAdd} isSelf={isSelf} />
 
       {/* 검색창 */}
       <div className="space-y-2">

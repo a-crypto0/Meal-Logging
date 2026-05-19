@@ -22,6 +22,7 @@ import {
   TopFoodsChart,
 } from "@/components/history-charts";
 import { RecipientSelector } from "@/components/recipient-selector";
+import { MonthlyReportButton } from "@/components/monthly-report-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { todayKey } from "@/lib/utils";
@@ -248,14 +249,21 @@ export default function HistoryPage() {
           </CardContent>
         </Card>
 
-        {/* CSV 다운로드 */}
+        {/* 데이터 내보내기 */}
         <Card>
-          <CardContent className="p-4 space-y-2">
+          <CardContent className="p-4 space-y-3">
             <p className="font-bold text-sm">데이터 내보내기</p>
             <p className="text-xs text-muted-foreground">
-              {MONTH_LABELS[month]} 식단 기록을 CSV 파일로 다운로드합니다.
-              복지센터·의료기관 제출용으로 활용하세요.
+              {MONTH_LABELS[month]} 식단 기록을 의료기관 제출용 PDF 또는 CSV로 다운로드합니다.
             </p>
+            {selectedRecipient && (
+              <MonthlyReportButton
+                recipientId={selectedRecipient.id}
+                recipientName={selectedRecipient.name}
+                year={year}
+                month={month}
+              />
+            )}
             <Button
               variant="outline"
               className="w-full gap-2"
