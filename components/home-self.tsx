@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ModeChangeButton } from "@/components/mode-change-button";
 import { useMealStore, todayKey } from "@/lib/store";
-import { useUserMode } from "@/lib/user-mode";
 import { cn, MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSelf() {
   const today = todayKey();
   const logs = useMealStore((s) => s.logs);
-  const setMode = useUserMode((s) => s.setMode);
 
   const slots = MEAL_SLOTS.map((slot) => ({
     ...slot,
@@ -37,15 +36,7 @@ export function HomeSelf() {
           <p className="text-base text-muted-foreground">안녕하세요!</p>
           <h1 className="text-3xl font-extrabold tracking-tight">오늘의 식판</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setMode(null)}
-          aria-label="모드 변경"
-          className="inline-flex items-center gap-1 rounded-full border-2 border-border px-3 py-2 text-xs font-bold hover:bg-accent"
-        >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-          모드 변경
-        </button>
+        <ModeChangeButton />
       </header>
 
       <div className="flex flex-col items-center gap-2 rounded-3xl bg-primary/10 p-6 text-center">

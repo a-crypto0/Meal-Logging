@@ -1,19 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BarChart3,
-  ChevronRight,
-  RefreshCw,
-  Sparkles,
-  UtensilsCrossed,
-} from "lucide-react";
+import { BarChart3, ChevronRight, Sparkles, UtensilsCrossed } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ModeChangeButton } from "@/components/mode-change-button";
 import { useMealStore, todayKey } from "@/lib/store";
-import { useUserMode } from "@/lib/user-mode";
 import { MEAL_SLOTS } from "@/lib/utils";
 
 export function HomeSupporter() {
@@ -24,7 +18,6 @@ export function HomeSupporter() {
     weekday: "long",
   });
   const logs = useMealStore((s) => s.logs);
-  const setMode = useUserMode((s) => s.setMode);
 
   const slots = MEAL_SLOTS.map((slot) => ({
     ...slot,
@@ -47,15 +40,7 @@ export function HomeSupporter() {
             지원인력 모드
           </Badge>
         </div>
-        <button
-          type="button"
-          onClick={() => setMode(null)}
-          aria-label="모드 변경"
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-border px-3 py-2 text-xs font-bold hover:bg-accent"
-        >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-          모드 변경
-        </button>
+        <ModeChangeButton />
       </header>
 
       <div className="grid grid-cols-3 gap-2">
@@ -122,18 +107,12 @@ export function HomeSupporter() {
                 ) : (
                   <p className="line-clamp-1 text-xs text-foreground">
                     {slot.entries
-                      .map(
-                        (e) =>
-                          `${e.emoji} ${e.foodName} ${e.quantity}${e.unit}`
-                      )
+                      .map((e) => `${e.emoji} ${e.foodName} ${e.quantity}${e.unit}`)
                       .join(" · ")}
                   </p>
                 )}
               </div>
-              <ChevronRight
-                className="h-5 w-5 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
             </Link>
           ))}
         </CardContent>

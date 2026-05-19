@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { FOOD_CATALOG, unitForId, type Food } from "@/lib/food-data";
-import { todayKey, type MealSlotId } from "@/lib/utils";
+import { todayKey, SLOT_DEFAULT_TIMES, type MealSlotId } from "@/lib/utils";
 
 export type MealEntry = {
   id: string;
@@ -13,7 +13,8 @@ export type MealEntry = {
   emoji: string;
   quantity: number;
   unit: string;
-  loggedAt: number; // epoch ms
+  loggedAt: number; // epoch ms (when the food was added to the log)
+  mealTime: string; // "HH:MM" — user-set meal time for that slot
 };
 
 // key: `${YYYY-MM-DD}:${slot}` -> entries
@@ -21,9 +22,10 @@ export type MealLog = Record<string, MealEntry[]>;
 
 type MealStore = {
   logs: MealLog;
-  addEntry: (date: string, slot: MealSlotId, food: Food) => void;
+  addEntry: (date: string, slot: MealSlotId, food: Food, mealTime: string) => void;
   removeEntry: (date: string, slot: MealSlotId, entryId: string) => void;
   setQuantity: (date: string, slot: MealSlotId, entryId: string, qty: number) => void;
+  setMealTime: (date: string, slot: MealSlotId, entryId: string, time: string) => void;
   getEntries: (date: string, slot: MealSlotId) => MealEntry[];
   getRecentFoods: (limit?: number) => Food[];
   getFrequentFoods: (limit?: number) => Food[];
@@ -38,7 +40,7 @@ export const useMealStore = create<MealStore>()(
     (set, get) => ({
       logs: {},
 
-      addEntry: (date, slot, food) => {
+      addEntry: (date, slot, food, mealTime) => {
         const k = keyFor(date, slot);
         const { unit } = unitForId(food.id);
         const entry: MealEntry = {
@@ -49,6 +51,7 @@ export const useMealStore = create<MealStore>()(
           quantity: 1,
           unit,
           loggedAt: Date.now(),
+          mealTime,
         };
         set((state) => ({
           logs: {
@@ -83,10 +86,25 @@ export const useMealStore = create<MealStore>()(
         }));
       },
 
+      setMealTime: (date, slot, entryId, time) => {
+        const k = keyFor(date, slot);
+        set((state) => ({
+          logs: {
+            ...state.logs,
+            [k]: (state.logs[k] ?? []).map((e) =>
+              e.id === entryId ? { ...e, mealTime: time } : e
+            ),
+          },
+        }));
+      },
+
       getEntries: (date, slot) => get().logs[keyFor(date, slot)] ?? [],
 
       getRecentFoods: (limit = 8) => {
-        const all = Object.values(get().logs).flat();
+        const all: MealEntry[] = [];
+        for (const entries of Object.values(get().logs) as MealEntry[][]) {
+          for (const e of entries) all.push(e);
+        }
         all.sort((a, b) => b.loggedAt - a.loggedAt);
         const seen = new Set<string>();
         const out: Food[] = [];
@@ -102,8 +120,10 @@ export const useMealStore = create<MealStore>()(
 
       getFrequentFoods: (limit = 8) => {
         const counts = new Map<string, number>();
-        for (const e of Object.values(get().logs).flat()) {
-          counts.set(e.foodId, (counts.get(e.foodId) ?? 0) + 1);
+        for (const entries of Object.values(get().logs) as MealEntry[][]) {
+          for (const e of entries) {
+            counts.set(e.foodId, (counts.get(e.foodId) ?? 0) + 1);
+          }
         }
         return [...counts.entries()]
           .sort((a, b) => b[1] - a[1])
@@ -114,21 +134,35 @@ export const useMealStore = create<MealStore>()(
     }),
     {
       name: "meal-logging-store-v1",
-      version: 2,
-      migrate: (persisted, version) => {
-        const state = (persisted as { logs?: Record<string, MealEntry[]> }) ?? { logs: {} };
-        if (version < 2 && state.logs) {
-          const migrated: MealLog = {};
-          for (const [k, entries] of Object.entries(state.logs)) {
-            migrated[k] = (entries as MealEntry[]).map((e) => ({
-              ...e,
-              quantity: e.quantity ?? 1,
-              unit: e.unit ?? unitForId(e.foodId).unit,
-            }));
+      version: 3,
+      migrate: (persisted: unknown, version: number) => {
+        // persisted is untrusted old data; use any to handle all versions safely
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw = persisted as any;
+        const logs: MealLog = raw?.logs ?? {};
+
+        // v1 → v2: add quantity, unit
+        if (version < 2) {
+          for (const entries of Object.values(logs)) {
+            for (const e of entries) {
+              if (e.quantity == null) e.quantity = 1;
+              if (!e.unit) e.unit = unitForId(e.foodId).unit;
+            }
           }
-          return { ...state, logs: migrated };
         }
-        return state;
+
+        // v2 → v3: add mealTime
+        if (version < 3) {
+          for (const [k, entries] of Object.entries(logs)) {
+            const slot = k.split(":")[1] as MealSlotId;
+            const defaultTime = SLOT_DEFAULT_TIMES[slot] ?? "12:00";
+            for (const e of entries) {
+              if (!e.mealTime) e.mealTime = defaultTime;
+            }
+          }
+        }
+
+        return { logs };
       },
     }
   )

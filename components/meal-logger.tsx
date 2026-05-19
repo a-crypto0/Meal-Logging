@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useMealStore, todayKey } from "@/lib/store";
 import { searchFoods, unitForId, type Food } from "@/lib/food-data";
 import { useUserMode } from "@/lib/user-mode";
-import { cn, MEAL_SLOTS, type MealSlotId } from "@/lib/utils";
+import { cn, MEAL_SLOTS, SLOT_DEFAULT_TIMES, type MealSlotId } from "@/lib/utils";
 
 type Tab = "recent" | "frequent";
 
@@ -35,6 +35,9 @@ export function MealLogger() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("recent");
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [slotTimes, setSlotTimes] = useState<Record<MealSlotId, string>>(
+    { ...SLOT_DEFAULT_TIMES }
+  );
 
   const date = todayKey();
   const entries = useMealStore((s) => s.logs[`${date}:${slot}`] ?? []);
@@ -47,12 +50,17 @@ export function MealLogger() {
   const suggestions = useMemo(() => searchFoods(query), [query]);
   const isSearching = query.trim().length > 0;
   const slotMeta = MEAL_SLOTS.find((s) => s.id === slot)!;
+  const currentTime = slotTimes[slot];
 
   function handleAdd(food: Food) {
-    addEntry(date, slot, food);
+    addEntry(date, slot, food, currentTime);
     setJustAdded(food.id);
     setQuery("");
     window.setTimeout(() => setJustAdded(null), 1200);
+  }
+
+  function handleTimeChange(time: string) {
+    setSlotTimes((prev) => ({ ...prev, [slot]: time }));
   }
 
   return (
@@ -101,6 +109,29 @@ export function MealLogger() {
             </button>
           );
         })}
+      </div>
+
+      {/* 식사 시간 설정 */}
+      <div className="flex items-center gap-3 rounded-2xl border-2 border-border bg-card px-4 py-3">
+        <Clock className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="flex-1">
+          <p className={cn("font-bold", isSelf ? "text-base" : "text-sm")}>
+            {slotMeta.label} 식사 시간
+          </p>
+          <p className="text-xs text-muted-foreground">
+            실제 드신 시간을 설정해 주세요
+          </p>
+        </div>
+        <input
+          type="time"
+          value={currentTime}
+          onChange={(e) => handleTimeChange(e.target.value)}
+          aria-label={`${slotMeta.label} 식사 시간 설정`}
+          className={cn(
+            "rounded-xl border-2 border-border bg-background px-3 font-extrabold tabular-nums text-foreground focus:border-primary focus:outline-none",
+            isSelf ? "py-2 text-xl" : "py-1.5 text-base"
+          )}
+        />
       </div>
 
       {slot === "snack" && (
@@ -167,7 +198,7 @@ export function MealLogger() {
         )}
       </div>
 
-      {/* 빠른 선택 탭: 자주/최근 */}
+      {/* 빠른 선택 탭: 최근/자주 */}
       {!isSearching && (
         <div>
           <div role="tablist" aria-label="빠른 선택" className="mb-3 flex gap-2">
@@ -221,10 +252,7 @@ export function MealLogger() {
                     </span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" aria-hidden />
-                      {new Date(e.loggedAt).toLocaleTimeString("ko-KR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {e.mealTime}
                     </span>
                     <button
                       type="button"
@@ -237,9 +265,7 @@ export function MealLogger() {
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-secondary/60 p-1.5">
                     <QtyButton
-                      onClick={() =>
-                        setQuantity(date, slot, e.id, e.quantity - step)
-                      }
+                      onClick={() => setQuantity(date, slot, e.id, e.quantity - step)}
                       ariaLabel={`${e.foodName} 양 줄이기`}
                       disabled={e.quantity <= step}
                       isSelf={isSelf}
@@ -255,9 +281,7 @@ export function MealLogger() {
                       {formatQty(e.quantity)} {e.unit}
                     </span>
                     <QtyButton
-                      onClick={() =>
-                        setQuantity(date, slot, e.id, e.quantity + step)
-                      }
+                      onClick={() => setQuantity(date, slot, e.id, e.quantity + step)}
                       ariaLabel={`${e.foodName} 양 늘리기`}
                       isSelf={isSelf}
                     >
@@ -374,27 +398,13 @@ function QuickGrid({
               <span className={cn(isSelf ? "text-3xl" : "text-2xl")} aria-hidden>
                 {f.emoji}
               </span>
-              <span
-                className={cn(
-                  "flex-1 font-bold",
-                  isSelf ? "text-base" : "text-sm"
-                )}
-              >
+              <span className={cn("flex-1 font-bold", isSelf ? "text-base" : "text-sm")}>
                 {f.name}
               </span>
               {flash ? (
-                <Check
-                  className={cn(isSelf ? "h-6 w-6" : "h-5 w-5", "text-primary")}
-                  aria-hidden
-                />
+                <Check className={cn(isSelf ? "h-6 w-6" : "h-5 w-5", "text-primary")} aria-hidden />
               ) : (
-                <Plus
-                  className={cn(
-                    isSelf ? "h-6 w-6" : "h-5 w-5",
-                    "text-muted-foreground"
-                  )}
-                  aria-hidden
-                />
+                <Plus className={cn(isSelf ? "h-6 w-6" : "h-5 w-5", "text-muted-foreground")} aria-hidden />
               )}
             </button>
           </li>
