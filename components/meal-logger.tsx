@@ -20,6 +20,7 @@ import { useMealStore, todayKey } from "@/lib/store";
 import { searchFoods, unitForId, type Food } from "@/lib/food-data";
 import { useUserMode } from "@/lib/user-mode";
 import { cn, MEAL_SLOTS, SLOT_DEFAULT_TIMES, type MealSlotId } from "@/lib/utils";
+import { useHydrated } from "@/lib/use-hydrated";
 
 type Tab = "recent" | "frequent";
 
@@ -28,6 +29,7 @@ export function MealLogger() {
   const params = useSearchParams();
   const initialSlot = (params.get("slot") as MealSlotId | null) ?? "breakfast";
 
+  const hydrated = useHydrated();
   const mode = useUserMode((s) => s.mode);
   const isSelf = mode === "self";
 
@@ -51,6 +53,14 @@ export function MealLogger() {
   const isSearching = query.trim().length > 0;
   const slotMeta = MEAL_SLOTS.find((s) => s.id === slot)!;
   const currentTime = slotTimes[slot];
+
+  if (!hydrated) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
+        불러오는 중…
+      </div>
+    );
+  }
 
   function handleAdd(food: Food) {
     addEntry(date, slot, food, currentTime);

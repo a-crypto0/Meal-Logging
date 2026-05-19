@@ -10,6 +10,7 @@ import { useMealStore, todayKey, type MealEntry } from "@/lib/store";
 import { FOOD_CATALOG, type Food, type Nutrition } from "@/lib/food-data";
 import { MEAL_SLOTS } from "@/lib/utils";
 import { useSettingsStore } from "@/lib/settings-store";
+import { useHydrated } from "@/lib/use-hydrated";
 
 // ---- 목표치 (일반 성인 기준) ----
 type NutritionTotals = Nutrition & { kcal: number };
@@ -103,6 +104,7 @@ export default function AnalysisPage() {
     weekday: "long",
   });
   const logs = useMealStore((s) => s.logs);
+  const hydrated = useHydrated();
   const { openAiKey } = useSettingsStore();
 
   // ---- OFD fetch state ----
@@ -179,6 +181,14 @@ export default function AnalysisPage() {
 
     return { totals: acc, slotBreakdowns };
   }, [logs, today, nutritionCache]);
+
+  if (!hydrated) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
+        불러오는 중…
+      </div>
+    );
+  }
 
   const hasAnyEntry = slotBreakdowns.some((bd) => bd.entries.length > 0);
   const ofdCount = (Object.values(nutritionCache) as FoodNutrition[]).filter((n) => n.source === "ofd").length;

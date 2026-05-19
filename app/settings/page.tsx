@@ -1,17 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle, Eye, EyeOff, Settings, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSettingsStore } from "@/lib/settings-store";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export default function SettingsPage() {
+  const hydrated = useHydrated();
   const { openAiKey, setOpenAiKey } = useSettingsStore();
-  const [inputKey, setInputKey] = useState(openAiKey);
+  const [inputKey, setInputKey] = useState("");
   const [show, setShow] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  // Sync input from store once hydrated
+  useEffect(() => {
+    if (hydrated) setInputKey(openAiKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
   const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -41,6 +49,14 @@ export default function SettingsPage() {
     } finally {
       setTesting(false);
     }
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
+        불러오는 중…
+      </div>
+    );
   }
 
   return (
