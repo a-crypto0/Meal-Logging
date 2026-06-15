@@ -93,7 +93,7 @@ lib/
 
 ## 향후 계획
 
-### 🔜 Step 2 — DB 스키마 설계 & Supabase 연동
+### 🚧 Step 2 — DB 스키마 설계 & Supabase 연동
 
 확정 방향:
 - **Supabase** 사용 (PostgreSQL + RLS + Auth)
@@ -111,15 +111,39 @@ nutrition_snapshots    (일별 영양 집계 캐시, 분석 성능용)
 ```
 
 작업 목록:
-- Supabase 프로젝트 연결, `.env.local` 설정
-- 마이그레이션 SQL 작성 + RLS 정책
-- TypeScript 타입 자동 생성 (`supabase gen types`)
-- Zustand store → Supabase 기반 React Query hooks로 교체
-- care_recipient 선택 UI (지원인력 모드)
+- ✅ **마이그레이션 SQL + RLS 정책 + `save_meal_record` RPC 작성**
+  → `supabase/migrations/20260615000000_init_meal_logging_schema.sql`
+  - `care_recipients`(안전 프로필 포함) / `meal_records` / `audit_logs`
+  - 익명 세션 모델: `auth.uid()` = `worker_id`, 전 테이블 RLS(본인 데이터만)
+  - `meal_records (recipient_id, date, meal_type)` UNIQUE, `audit_logs` append-only
+  - `save_meal_record`: 원자적 저장, 충돌 시 `PT409`(force_replace 교체), 감사로그 자동 기록
+- ⏸️ **보류 (사용자 요청)** — 아래 Supabase **라이브 연동** 단계는 잠시 중단:
+  - Supabase 프로젝트 연결, `.env.local` 설정
+  - 실제 DB에 마이그레이션 적용 + TypeScript 타입 자동 생성 (`supabase gen types`)
+  - Zustand store → Supabase 기반 React Query hooks로 교체
+  - care_recipient 선택 UI (지원인력 모드)
+
+### ✅ 분석 로직 엔진 (순수 알고리즘 · AI 미사용)
+
+DB 연동과 **독립적으로 동작하는 결정론적 분석 로직**. 동일 입력 → 동일 출력이라
+'기록 신뢰성'을 보장하며, Step 3·4 화면이 이 함수들을 그대로 소비한다.
+입력 모델 `MealRecord`(카멜케이스)는 `meal_records` 행과 1:1 대응.
+
+- `lib/mealInsights.ts` — 돌봄 신호 추출
+  - `detectRepeatedFoods`: 최근 7/28일 동일 음식 3회↑ 반복 감지(끼니 내 dedupe)
+  - `analyzeDiversity`: 카테고리 치우침·핵심 식품군(채소·과일 등) 부족 + 정규화 Shannon 다양성 점수
+  - `suggestAlternatives`: 부족 카테고리 대체 메뉴 제안(과용 음식 제외)
+  - `getMealInsights`: 위를 통합해 `CareSignal[]` 산출
+- `lib/careReport.ts` — 통계·리포트 집계
+  - `aggregateIntakeStatus`: 다먹음/일부/거부·건너뜀 비율
+  - `averageFluidIntake`: 일평균 수분 + 기준치 미달 경고
+  - `snackRatio`: 전체 끼니 중 간식 비중(체중 관리 분석용)
+  - `topResponseTags`: 반응 태그 빈도 순위
+  - `buildCareReport`: 위를 통합 + 임계 초과 신호(`CareSignal[]`)
 
 ### 🔜 Step 3 — 반복 식단 경고 & 영양 분석 화면
 
-- 최근 7일 `meal_log_entries` 집계 → 동일 음식 3회↑ 경고 배너
+- (✅ 로직 완료) `getMealInsights` 신호를 배너/카드로 렌더 — 최근 7일 동일 음식 3회↑ 경고 배너
 - 탄수화물·단백질·지방·비타민별 목표 대비 현황 바 차트
 - 신호등 색상(`signal.good/warn/bad`) + 스마일 이모지 피드백
 - 칭찬 배지 (다양한 식품군 섭취 달성 시)
@@ -127,7 +151,7 @@ nutrition_snapshots    (일별 영양 집계 캐시, 분석 성능용)
 ### 🔜 Step 4 — 히스토리 대시보드 & 차트
 
 - 달력 뷰: 날짜별 기록 여부 / 영양 점수 색상 표시
-- 주간·월간 통계: 가장 많이 먹은 음식 Top 5, 영양 균형 점수 Recharts
+- 주간·월간 통계: 가장 많이 먹은 음식 Top 5, 영양 균형 점수 Recharts (← `buildCareReport` 소비)
 - CSV 다운로드 (복지센터·의료기관 제출용)
 
 ### 🔜 Step 5 — OpenAI API 연동
