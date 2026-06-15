@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { BottomNav } from "@/components/bottom-nav";
+
+import { AuthProvider } from "@/components/providers/auth-provider";
+import { AppShell } from "@/components/layout/app-shell";
 
 import "./globals.css";
 
@@ -20,10 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
-        <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
-          <main className="flex-1 pb-20">{children}</main>
-          <BottomNav />
-        </div>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

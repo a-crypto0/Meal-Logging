@@ -141,6 +141,19 @@ DB 연동과 **독립적으로 동작하는 결정론적 분석 로직**. 동일
   - `topResponseTags`: 반응 태그 빈도 순위
   - `buildCareReport`: 위를 통합 + 임계 초과 신호(`CareSignal[]`)
 
+### ✅ 앱 셸 · 익명 인증 · 오프라인 임시저장(PWA)
+
+- **익명 진입**: `/` → `signInAnonymously` 자동 시작(미설정/오프라인 시 로컬 게스트 폴백) → `/dashboard` 리다이렉트. 로그인 화면 없음.
+  - `lib/supabase/client.ts`(브라우저 싱글톤) · `components/providers/auth-provider.tsx`(세션 부트스트랩·컨텍스트 `useAuth`)
+- **반응형 레이아웃**: `components/layout/app-shell.tsx`
+  - 모바일: 상단바(`app-top-bar`) + 하단 탭 5종(`bottom-nav`: 홈·기록·영양·추천·히스토리)
+  - 데스크톱(lg+): 좌측 고정 사이드바(`sidebar-nav`) · 공통 메뉴 `lib/nav-items.ts`
+- **오프라인 임시저장**: `lib/draft.ts`(localStorage · 30일 TTL) + `lib/use-draft.ts`
+  - `useDraftAutosave`: 250ms 디바운스 자동저장 / `useDraftRecovery`: 재방문 + `online`(네트워크 복구) 시 복구 후보 노출
+  - `components/meal-draft-form.tsx`(섭취·태그·수분·메모) + `components/draft-recovery-dialog.tsx`("작성 중이던 기록이 있습니다…")
+  - 프리미티브 `components/ui/dialog.tsx`·`textarea.tsx` 추가, `app/manifest.ts`(PWA 매니페스트)
+- 라우팅 변경: 홈 `/` → **`/dashboard`** (`/`는 익명 세션 부트스트랩 스플래시)
+
 ### 🔜 Step 3 — 반복 식단 경고 & 영양 분석 화면
 
 - (✅ 로직 완료) `getMealInsights` 신호를 배너/카드로 렌더 — 최근 7일 동일 음식 3회↑ 경고 배너

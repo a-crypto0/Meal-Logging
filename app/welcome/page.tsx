@@ -49,7 +49,7 @@ export default function WelcomePage() {
 
   function pick(m: UserMode) {
     setMode(m);
-    router.replace("/");
+    router.replace("/dashboard");
   }
 
   return (
